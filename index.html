@@ -1,63 +1,127 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inbox Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
 <body>
-  <h1>Inbox Monitor</h1>
-  <p id="status">Connecting to Supabase...</p>
 
-  <script>
-    const SUPABASE_URL = "https://hsxfolyazybmvemaxghs.supabase.co";
-    const FUNCTION_URL =
-      SUPABASE_URL + "/functions/v1/rapid-processor";
+<h1>Inbox Monitor</h1>
 
-    let recentEmail = false;
-    let flash = false;
+<div id="login">
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="signIn()">Sign In</button>
+  <button onclick="signUp()">Create Account</button>
+</div>
 
-    async function checkEmail() {
-      try {
-        const response = await fetch(FUNCTION_URL);
+<button id="logout" onclick="signOut()" hidden>Sign Out</button>
 
-        if (!response.ok) {
-          throw new Error("Supabase request failed");
-        }
+<p id="status">Please sign in.</p>
 
-        const data = await response.json();
+<script>
+const SUPABASE_URL =
+  "https://hsxfolyazybmvemaxghs.supabase.co";
 
-        recentEmail = data.recent;
+const SUPABASE_KEY = "YOUR_PUBLISHABLE_KEY";
 
-        document.getElementById("status").textContent =
-          recentEmail ? "New email detected!" : "No recent emails";
+const client = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-      } catch (error) {
-        console.error(error);
-        document.getElementById("status").textContent =
-          "Connection error";
-        recentEmail = false;
-      }
-    }
+let recentEmail = false;
+let flash = false;
 
-    // Check Supabase every 5 seconds
-    checkEmail();
-    setInterval(checkEmail, 5000);
+async function signIn() {
+  const { error } = await client.auth.signInWithPassword({
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value
+  });
 
-    // Flash the browser tab title every 500ms
-    setInterval(() => {
-      if (recentEmail) {
-        flash = !flash;
+  if (error) {
+    document.getElementById("status").textContent = error.message;
+    return;
+  }
 
-        document.title = flash
-          ? "NEW EMAIL RECEIVED!"
-          : "Inbox Monitor";
-      } else {
-        document.title = "Inbox Monitor";
-      }
-    }, 500);
-  </script>
+  updateUI();
+}
+
+async function signUp() {
+  const { error } = await client.auth.signUp({
+    email: document.getElementById("email").value,
+    password: document.getElementById("password").value
+  });
+
+  document.getElementById("status").textContent =
+    error ? error.message : "Check your email to confirm registration.";
+}
+
+async function signOut() {
+  await client.auth.signOut();
+  recentEmail = false;
+  document.title = "Inbox Monitor";
+  updateUI();
+}
+
+async function updateUI() {
+  const { data: { session } } = await client.auth.getSession();
+
+  document.getElementById("login").hidden = !!session;
+  document.getElementById("logout").hidden = !session;
+
+  if (!session) {
+    document.getElementById("status").textContent = "Please sign in.";
+    recentEmail = false;
+    return;
+  }
+
+  document.getElementById("status").textContent = "Signed in.";
+  checkEmail();
+}
+
+async function checkEmail() {
+  const { data: { session } } = await client.auth.getSession();
+
+  if (!session) return;
+
+  const { data, error } = await client.functions.invoke(
+    "rapid-processor"
+  );
+
+  if (error) {
+    console.error(error);
+    document.getElementById("status").textContent =
+      "Error checking emails.";
+    return;
+  }
+
+  recentEmail = data.recent;
+
+  document.getElementById("status").textContent =
+    recentEmail ? "New email detected!" : "No recent emails.";
+}
+
+client.auth.onAuthStateChange(() => {
+  updateUI();
+});
+
+setInterval(checkEmail, 5000);
+
+setInterval(() => {
+  if (recentEmail) {
+    flash = !flash;
+    document.title = flash
+      ? "NEW EMAIL RECEIVED!"
+      : "Inbox Monitor";
+  } else {
+    document.title = "Inbox Monitor";
+  }
+}, 500);
+
+updateUI();
+</script>
+
 </body>
 </html>
