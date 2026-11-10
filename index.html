@@ -1,0 +1,63 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inbox Monitor</title>
+</head>
+
+<body>
+  <h1>Inbox Monitor</h1>
+  <p id="status">Connecting to Supabase...</p>
+
+  <script>
+    const SUPABASE_URL = "YOUR_PROJECT_URL";
+    const FUNCTION_URL =
+      SUPABASE_URL + "/functions/v1/recent-email";
+
+    let recentEmail = false;
+    let flash = false;
+
+    async function checkEmail() {
+      try {
+        const response = await fetch(FUNCTION_URL);
+
+        if (!response.ok) {
+          throw new Error("Supabase request failed");
+        }
+
+        const data = await response.json();
+
+        recentEmail = data.recent;
+
+        document.getElementById("status").textContent =
+          recentEmail ? "New email detected!" : "No recent emails";
+
+      } catch (error) {
+        console.error(error);
+        document.getElementById("status").textContent =
+          "Connection error";
+        recentEmail = false;
+      }
+    }
+
+    // Check Supabase every 5 seconds
+    checkEmail();
+    setInterval(checkEmail, 5000);
+
+    // Flash the browser tab title every 500ms
+    setInterval(() => {
+      if (recentEmail) {
+        flash = !flash;
+
+        document.title = flash
+          ? "NEW EMAIL RECEIVED!"
+          : "Inbox Monitor";
+      } else {
+        document.title = "Inbox Monitor";
+      }
+    }, 500);
+  </script>
+</body>
+</html>
