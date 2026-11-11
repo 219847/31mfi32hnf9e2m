@@ -97,7 +97,7 @@ async function checkEmail() {
     return;
   }
 
-  recentEmail = data.recent;
+  recentEmail = Boolean(data?.recent);
 
   document.getElementById("status").textContent =
     recentEmail ? "New email detected!" : "No recent emails.";
